@@ -13,46 +13,35 @@ using json = nlohmann::json;
 
 namespace stoat::users {
 
-    class GetUser {
+    class FetchUser {
 
         public:
 
-            std::string fetch_id(StoatClient &client , const std::string &user_id) {
+            struct User {
 
-                /*
-                Return a users Stoat ID
-                */
+                std::string id;
+                std::string username;
+                std::string avatar_id;
+                std::string avatar_filename;
+                std::string avatar_filetype;
+                std::string avatar_extension;
+                std::string avatar_filesize;
+                std::string status_text;
+                bool online_status;
+                int discriminator;
+                int avatar_height;
+                int avatar_width;
 
-                json object = fetch_user(client , user_id);
-                id_ = object["_id"].get<std::string>();
+            };
 
-                if (id_.empty()) {
-                    std::ostringstream oss;
-                    oss << MAG << "[ " << get_current_time() << " ] " << RED << "[ ERROR ] The returned ID is null." << std::endl;
-                    throw std::runtime_error(oss.str());
-                }
-
-                return id_;
-
+            static User fetch(StoatClient &client , const std::string &user_id) {
+                json data = fetch_user_json(client , user_id);
+                return json_to_user(data);
             }
 
         private:
 
-            std::string id_;
-            std::string username_;
-            int discriminator_;
-            std::string avatar_id_;
-            std::string avatar_tag_;
-            std::string avatar_filename_;
-            std::string avatar_filetype_;
-            std::string avatar_height_;
-            std::string avatar_width_;
-            std::string avatar_extension_;
-            std::string avatar_filesize_;
-            std::string status_text_;
-            std::string online_status_;
-
-            json fetch_user(StoatClient &client , const std::string &user_id) {
+            static json fetch_user_json(StoatClient &client , const std::string &user_id) {
 
                 auto &ioc = client.ioc();
                 auto &ssl_ctx = client.ssl_ctx();
@@ -94,7 +83,7 @@ namespace stoat::users {
                         throw std::runtime_error(oss.str());
                     }
                     
-                    try{
+                    try {
                         return json::parse(response.body);
                     }
                     catch (std::exception &error) {
@@ -108,6 +97,39 @@ namespace stoat::users {
                 std::ostringstream oss;
                 oss << MAG << "[ " << get_current_time() << " ] " << RED << "Request failed after retries!";
                 throw std::runtime_error(oss.str());
+
+            }
+
+            static User json_to_user(const json &json) {
+
+                User user;
+
+                user.id = json.at("_id").get<std::string>();
+                user.username = json.at("username").get<std::string>();
+                user.discriminator = json.at("discriminator").get<int>();
+                user.online_status = json.at("online").get<bool>();
+
+                if (json.contains("avatar")) {
+                    const auto &avatar = json.at("avatar");
+                    user.avatar_id = avatar.value("_id" , "Null");
+                    user.avatar_filename = avatar.value("filename" , "Null");
+                    user.avatar_extension = avatar.value("content_type" , "Null");
+                    user.avatar_filesize = avatar.value("size" , 0);
+                }
+
+                if (json.contains("metadata")) {
+                    const auto &metadata = json.at("metadata");
+                    user.avatar_filetype = metadata.value("type" , "Null");
+                    user.avatar_width = metadata.value("width" , 0);
+                    user.avatar_height = metadata.value("height" , 0);
+                }
+
+                if (json.contains("status")) {
+                    const auto &status = json.at("status");
+                    user.status_text = status.value("text" , "Null");
+                }
+
+                return user;
 
             }
 

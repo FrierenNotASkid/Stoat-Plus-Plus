@@ -21,9 +21,9 @@ HTTPResponse http_get(StoatClient &client , std::string &path) {
     stream.handshake(asio::ssl::stream_base::client);
 
     std::string request = 
-        "GET " + path + " HTTP/3\r\n"
+        "GET " + path + " HTTP/1.1\r\n"
         "Host: " + host + "\r\n"
-        "Authorization: Bearer " + token + "\r\n"
+        "Authorization: Bot " + token + "\r\n"
         "Accept: application/json\r\n"
         "Connection: close\r\n\r\n";
 
@@ -45,7 +45,7 @@ HTTPResponse http_get(StoatClient &client , std::string &path) {
     int reset = 0;
     int retry_after = 0;
 
-    size_t status_start = header_string.find("HTTP/3 ");
+    size_t status_start = header_string.find("HTTP/1.1 ");
     if (status_start != std::string::npos) {
         status = std::stoi(header_string.substr(status_start + 9 , 3));
     }
@@ -56,7 +56,7 @@ HTTPResponse http_get(StoatClient &client , std::string &path) {
             return "";
         }
         size_t end = header_string.find("\r\n" , position);
-        return header_string.substr(position + key.size() + 2 , end = position - key.size() - 2);
+        return header_string.substr(position + key.size() + 2 , end - (position + key.size() + 2));
     };
 
     std::string remaining_string = find_header("X-RateLimit-Remaining");
@@ -69,7 +69,7 @@ HTTPResponse http_get(StoatClient &client , std::string &path) {
     }
     std::string retry_after_string = find_header("Retry-After");
     if (!retry_after_string.empty()) {
-        reset = std::stoi(retry_after_string) * 1000;
+        retry_after = std::stoi(retry_after_string) * 1000;
     }
 
     return {status , body , remaining , reset , retry_after};
